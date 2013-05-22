@@ -71,10 +71,90 @@ end
 function test_from_blog()
 	local tmpfile = setup_tmpfile()
 	-- lifted directly from http://lua-users.org/wiki/TablePersistence ATTOTW
-	local orig = {1, 2, ["a"] = "string", b = "test", {"subtable", [4] = 2}};
-	persistence.store(tmpfile, orig);
-	local restored = persistence.load(tmpfile);
+	local orig = {1, 2, ["a"] = "string", b = "test", {"subtable", [4] = 2}}
+	persistence.store(tmpfile, orig)
+	local restored = persistence.load(tmpfile)
 	assert_equal_recursive(orig, restored)
+end
+
+function test_single_line_array()
+	function is_single_line_array(file_content)
+		return file_content:match("{[^\n]+}") and true or false
+	end
+
+	local test_case = {
+		{1, 2, 3, 4, 5},
+		{"test", "is", "passed", "yeah!"},
+	}
+
+	local fail_case = {
+		{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+		{"test", "is", "passed", "but this string is to long to keep in a single line"},
+	}
+
+	for _, value in ipairs(test_case) do
+		local tmpfile = setup_tmpfile()
+		persistence.store(tmpfile, value)
+
+		local f = io.open(tmpfile)
+		local content = f:read("*a")
+		assert(is_single_line_array(content))
+		f:close()
+	end
+	
+	for _, value in ipairs(fail_case) do
+		local tmpfile = setup_tmpfile()
+		persistence.store(tmpfile, value)
+
+		local f = io.open(tmpfile)
+		local content = f:read("*a")
+		assert(not is_single_line_array(content))
+		f:close()
+	end
+end
+
+function test_key_seq()
+	local test = {
+		1,
+		2,
+		one = 1,
+		two = 2,
+		three = 3,
+	}
+	local key_seq = {"one", "two", "three"}
+	setmetatable(test, {__key_seq = key_seq})
+
+	local tmpfile = setup_tmpfile()
+	persistence.store(tmpfile, test)
+
+	local f = io.open(tmpfile)
+	local content = f:read("*a")
+
+	local pos_map = {}
+	local seq = {}
+	for _, key in ipairs(key_seq) do
+		local pos = content:find(key)
+		table.insert(seq, key)
+		pos_map[key] = pos
+	end
+
+	table.sort(seq, function(a, b)
+		return pos_map[a] < pos_map[b]
+	end)
+
+	assert_equal_recursive(key_seq, seq)
+
+	f:close()
+end
+
+function test_format()
+	local tmpfile = setup_tmpfile()
+	local orig = {1, 2, ["a"] = "string", b = "test", {"subtable", [4] = 2}}
+	persistence.store(tmpfile, orig)
+
+	local f = io.open(tmpfile)
+	print(f:read("*a"))
+	f:close()
 end
 
 lunatest.run()
