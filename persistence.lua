@@ -88,16 +88,32 @@ persistence =
 
 -- Private methods
 
+local function append(t, ...)
+	local args = {...}
+	for _, v in ipairs(args) do
+		table.insert(t, v)
+	end
+end
+
+local function append_indent(buf, level)
+	local indent = string.rep("\t", level)
+	append(buf, indent)
+end
+
+local function append_value(buf, value, level, objRefNames)
+	writers[type(value)](buf, value, level, objRefNames)
+end
+
 -- write thing (dispatcher)
 write = function (file, item, level, objRefNames)
-	writers[type(item)](file, item, level, objRefNames)
+	local buf = {}
+	writers[type(item)](buf, item, level, objRefNames)
+	file:write(table.concat(buf))
 end
 
 -- write indent
 writeIndent = function (file, level)
-	for i = 1, level do
-		file:write("\t")
-	end
+	file:write(string.rep("\t", level))
 end
 
 -- recursively count references
@@ -120,64 +136,60 @@ end
 
 -- Format items for the purpose of restoring
 writers = {
-	["nil"] = function (file, item)
-			file:write("nil")
+	["nil"] = function (buf, item)
+			append(buf, "nil")
 		end,
-	["number"] = function (file, item)
-			file:write(tostring(item))
+	["number"] = function (buf, item)
+			append(buf, tostring(item))
 		end,
-	["string"] = function (file, item)
-			file:write(string.format("%q", item))
+	["string"] = function (buf, item)
+			append(buf, string.format("%q", item))
 		end,
-	["boolean"] = function (file, item)
-			if item then
-				file:write("true")
-			else
-				file:write("false")
-			end
+	["boolean"] = function (buf, item)
+			append(buf, item and "true", "false")
 		end,
-	["table"] = function (file, item, level, objRefNames)
+	["table"] = function (buf, item, level, objRefNames)
 			local refIdx = objRefNames[item]
 			if refIdx then
 				-- Table with multiple references
-				file:write("multiRefObjects["..refIdx.."]")
+				append(buf, "multiRefObjects["..refIdx.."]")
 			else
 				-- Single use table
-				file:write("{\n")
+				append(buf, "{\n")
 				for k, v in pairs(item) do
-					writeIndent(file, level+1)
-					file:write("[")
-					write(file, k, level+1, objRefNames)
-					file:write("] = ")
-					write(file, v, level+1, objRefNames)
-					file:write(";\n")
+					append_indent(buf, level+1)
+					append(buf, "[")
+					append_value(buf, k, level+1, objRefNames)
+					append(buf, "] = ")
+					append_value(buf, v, level+1, objRefNames)
+					append(buf, ",\n")
 				end
-				writeIndent(file, level)
-				file:write("}")
+				append_indent(buf, level)
+				append(buf, "}")
 			end
 		end,
-	["function"] = function (file, item)
+	["function"] = function (buf, item)
 			-- Does only work for "normal" functions, not those
 			-- with upvalues or c functions
 			local dInfo = debug.getinfo(item, "uS")
 			if dInfo.nups > 0 then
-				file:write("nil --[[functions with upvalue not supported]]")
+				append(buf, "nil --[[functions with upvalue not supported]]")
 			elseif dInfo.what ~= "Lua" then
-				file:write("nil --[[non-lua function not supported]]")
+				append(buf, "nil --[[non-lua function not supported]]")
 			else
 				local r, s = pcall(string.dump,item)
 				if r then
-					file:write(string.format("loadstring(%q)", s))
+					append(buf, string.format("loadstring(%q)", s))
 				else
-					file:write("nil --[[function could not be dumped]]")
+					append(buf, "nil --[[function could not be dumped]]")
 				end
 			end
 		end,
-	["thread"] = function (file, item)
-			file:write("nil --[[thread]]\n")
+	["thread"] = function (buf, item)
+			append(buf, "nil --[[thread]]\n")
 		end,
-	["userdata"] = function (file, item)
-			file:write("nil --[[userdata]]\n")
+	["userdata"] = function (buf, item)
+			append(buf, "nil --[[userdata]]\n")
 		end,
 }
 
