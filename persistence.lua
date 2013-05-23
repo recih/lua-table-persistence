@@ -41,15 +41,22 @@ persistence =
 		local objRefNames = {}
 		local objRefIdx = 0
 		file:write("-- Persistent Data\n")
-		file:write("local multiRefObjects = {\n")
+
 		for obj, count in pairs(objRefCount) do
 			if count > 1 then
+				if objRefIdx <= 0 then
+					file:write("local multiRefObjects = {\n")
+				end
+				multi_count = multi_count + 1
 				objRefIdx = objRefIdx + 1
 				objRefNames[obj] = objRefIdx
-				file:write("{};") -- table objRefIdx
+				file:write("{}") -- table objRefIdx
 			end
 		end
-		file:write("\n} -- multiRefObjects\n")
+		if objRefIdx > 0 then
+			file:write("\n} -- multiRefObjects\n")
+		end
+
 		-- Then fill them (this requires all empty multiRefObjects to exist)
 		for obj, idx in pairs(objRefNames) do
 			for k, v in pairs(obj) do
@@ -57,25 +64,28 @@ persistence =
 				write(file, k, 0, objRefNames)
 				file:write("] = ")
 				write(file, v, 0, objRefNames)
-				file:write(";\n")
+				file:write(",\n")
 			end
 		end
+
 		-- Create the remaining objects
-		for i = 1, n do
-			file:write("local ".."obj"..i.." = ")
-			write(file, (select(i,...)), 0, objRefNames)
-			file:write("\n")
-		end
-		-- Return them
-		if n > 0 then
+		if n <= 0 then
+			file:write("return")
+		elseif n == 1 then
+			file:write("return ")
+			write(file, (select(1,...)), 0, objRefNames)
+		else
+			for i = 1, n do
+				file:write("local ".."obj"..i.." = ")
+				write(file, (select(i,...)), 0, objRefNames)
+				file:write("\n")
+			end
 			file:write("return obj1")
 			for i = 2, n do
 				file:write(" ,obj"..i)
 			end
-			file:write("\n")
-		else
-			file:write("return\n")
 		end
+		file:write("\n")
 		file:close()
 	end,
 
@@ -184,7 +194,7 @@ writers = {
 			else
 				-- Single use table
 				if not next(item) then
-					push(buf, "{}")
+					append(buf, "{}")
 					return
 				end
 
