@@ -35,7 +35,7 @@ function assert_equal_recursive(thing1, thing2, path)
 		local allkeys = {}
 		for _,t in pairs({thing1, thing2}) do
 		  for k,_ in pairs(t) do
-				if not ('number' == k and 0 == (k % 1.0)) then
+				if not ('number' == type(k) and 0 == (k % 1.0)) then
 					allkeys[k] = true
 				end
 			end
@@ -75,6 +75,23 @@ function test_from_blog()
 	persistence.store(tmpfile, orig)
 	local restored = persistence.load(tmpfile)
 	assert_equal_recursive(orig, restored)
+end
+
+function test_types()
+	local test = {
+		nothing = nil,
+		int = 1,
+		number = 123.456,
+		bool = true,
+		string = "test",
+		table = {},
+	}
+
+	local tmpfile = setup_tmpfile()
+	-- lifted directly from http://lua-users.org/wiki/TablePersistence ATTOTW
+	persistence.store(tmpfile, test)
+	local restored = persistence.load(tmpfile)
+	assert_equal_recursive(test, restored)
 end
 
 function test_single_line_array()
