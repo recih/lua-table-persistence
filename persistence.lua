@@ -47,10 +47,9 @@ persistence =
 				if objRefIdx <= 0 then
 					file:write("local multiRefObjects = {\n")
 				end
-				multi_count = multi_count + 1
 				objRefIdx = objRefIdx + 1
 				objRefNames[obj] = objRefIdx
-				file:write("{}") -- table objRefIdx
+				file:write("{},") -- table objRefIdx
 			end
 		end
 		if objRefIdx > 0 then
@@ -64,7 +63,7 @@ persistence =
 				write(file, k, 0, objRefNames)
 				file:write("] = ")
 				write(file, v, 0, objRefNames)
-				file:write(",\n")
+				file:write("\n")
 			end
 		end
 

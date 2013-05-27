@@ -77,6 +77,16 @@ function test_from_blog()
 	assert_equal_recursive(orig, restored)
 end
 
+function test_cycle_ref()
+	local tmpfile = setup_tmpfile()
+	local orig = {1, 2, ["a"] = "string", b = "test", {"subtable", [4] = 2}}
+	orig.cycle = orig
+	persistence.store(tmpfile, orig)
+
+	local restored = persistence.load(tmpfile)
+	assert_equal_recursive(in_data, out_data)
+end
+
 function test_types()
 	local test = {
 		nothing = nil,
