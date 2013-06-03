@@ -180,7 +180,6 @@ function test_format()
 	persistence.store(tmpfile, orig)
 
 	local f = io.open(tmpfile)
-	print(f:read("*a"))
 	f:close()
 end
 
